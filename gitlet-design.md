@@ -1,6 +1,6 @@
 # Gitlet Design Document
 
-**Name**:
+**Name**: Xin Wei
 
 ## Classes and Data Structures
 

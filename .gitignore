@@ -1,4 +1,6 @@
 *.txt
 .gitlet/
 .idea/
-
+*.class
+*.xml
+*.iml

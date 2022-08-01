@@ -28,7 +28,7 @@ public class Commit implements Serializable {
     private String message;
 
     /** The commit time of this Commit. */
-    private String date;
+    private String timestamp;
 
     /** The parent node of this Commit. */
     private String parent;
@@ -41,14 +41,14 @@ public class Commit implements Serializable {
      */
     Commit() {
         message = "initial commit";
-        date = new Date().toString();
+        timestamp = new Date().toString();
         parent = null;
         fileMap = null;
     }
 
     Commit(String _message, String _parent) {
         message = _message;
-        date = new Date().toString();
+        timestamp = new Date().toString();
         parent = _parent;
         fileMap = new HashMap<>();
     }
@@ -59,13 +59,17 @@ public class Commit implements Serializable {
     }
 
     /** Get construct date of commit. */
-    public String getDate() {
-        return date;
+    public String getTimestamp() {
+        return timestamp;
     }
 
     /** Get message of commit. */
     public String getMessage() {
         return message;
+    }
+
+    public String getParent() {
+        return parent;
     }
 
     public Map<String, String> getFileMap() {
@@ -84,19 +88,33 @@ public class Commit implements Serializable {
             }
 
 
-            /** 2. Update fileMap using staged files and delete staged files. */
-            File stagingArea = new File(Repository.STAGE_DIR.toString());
-            String[] stagedFiles = stagingArea.list();
-            if (stagedFiles.length == 0) {
+            File stagedArea = new File(Repository.STAGE_ADD_DIR.toString());
+            String[] stagedFiles = stagedArea.list();
+            File stagedRemoval = new File(Repository.STAGE_RM_DIR.toString());
+            String[] stagedRMFiles = stagedRemoval.list();
+            /**
+             * 2. Update fileMap using staged_for_addition files and delete staged files.
+             * */
+            if (stagedFiles.length == 0 && stagedRemoval.length() == 0) {
                 throw new GitletException("No changes added to the commit.");
             }
-            for (String file : stagedFiles) {
-                File ref = join(Repository.STAGE_DIR, file);
+            for (String file: stagedFiles) {
+                File ref = join(Repository.STAGE_ADD_DIR, file);
                 String content = readContentsAsString(ref);
                 String sha1Code = sha1(content);
                 File commitFile = join(Repository.OBJECT_DIR, sha1Code);
                 writeContents(commitFile, content);
                 fileMap.put(file, sha1Code);
+                ref.delete();
+            }
+
+            /**
+             * 3. Update fileMap using staged_for_removal files.
+             */
+            /** Delete relative mapping from fileName to sha1 code. */
+            for (String file: stagedRMFiles) {
+                File ref = join(Repository.STAGE_RM_DIR, file);
+                fileMap.remove(file);
                 ref.delete();
             }
         } catch (GitletException e) {
@@ -107,7 +125,7 @@ public class Commit implements Serializable {
     public void updateCommit(File commitFile, String sha1Code) {
         String content = "";
         content = content + "commit " + sha1Code;
-        content = content + "\nDate: " + date;
+        content = content + "\nDate: " + timestamp;
         content = content + "\n" + message;
         writeContents(commitFile, content);
     }
@@ -119,5 +137,21 @@ public class Commit implements Serializable {
     public void saveCommit(String sha1Code) {
         File commitObject = join(Repository.COMMIT_DIR, sha1Code);
         writeObject(commitObject, this);
+    }
+
+    public static Commit getLastCommit() {
+        String lastCommitSha1 = readContentsAsString(Repository.HEAD_FILE);
+        File lastCommit = join(Repository.COMMIT_DIR, lastCommitSha1);
+        return readObject(lastCommit, Commit.class);
+    }
+
+    public static Commit getCommitFromSha1(String sha1Code) {
+        File file = join(Repository.COMMIT_DIR, sha1Code);
+        return readObject(file, Commit.class);
+    }
+
+    public String getContent(String commitPointer) {
+        File logFile = join(Repository.OBJECT_DIR, commitPointer);
+        return readContentsAsString(logFile);
     }
 }

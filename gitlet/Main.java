@@ -31,6 +31,18 @@ public class Main {
                 assert (argsLength == 2): "Incorrect operands.";
                 Repository.commit(args[1]);
                 break;
+            case "rm":
+                assert (argsLength == 2): "Incorrect operands.";
+                Repository.rm(args[1]);
+                break;
+            case "log":
+                assert (argsLength == 1): "Incorrect operands.";
+                Repository.log();
+                break;
+            case "global-log":
+                assert (argsLength == 1): "Incorrect operands.";
+                Repository.global_log();
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);

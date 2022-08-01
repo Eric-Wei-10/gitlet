@@ -1,11 +1,10 @@
 package gitlet;
 
 import java.io.File;
-import static gitlet.Utils.*;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
+
+import static gitlet.Utils.*;
 
 /** Represents a gitlet repository.
  *  TODO: It's a good idea to give a description here of what else this Class
@@ -29,7 +28,9 @@ public class Repository {
     /** The object directory. */
     public static final File OBJECT_DIR = join(GITLET_DIR, "object");
     /** The stage directory. */
-    public static final File STAGE_DIR = join(GITLET_DIR, "stage");
+    public static final File STAGE_ADD_DIR = join(GITLET_DIR, "staged_for_addition");
+    /** The stage removal directory. */
+    public static final File STAGE_RM_DIR = join(GITLET_DIR, "staged_for_removal");
     /** The commit history directory. */
     public static final File COMMIT_DIR = join(GITLET_DIR, "commit");
     /** The HEAD file. */
@@ -44,7 +45,8 @@ public class Repository {
 
             GITLET_DIR.mkdir();
             OBJECT_DIR.mkdir();
-            STAGE_DIR.mkdir();
+            STAGE_ADD_DIR.mkdir();
+            STAGE_RM_DIR.mkdir();
             COMMIT_DIR.mkdir();
 
             Commit commit = new Commit();
@@ -79,7 +81,7 @@ public class Repository {
             String content = readContentsAsString(file);
             String sha1Code = sha1(content);
 
-            File stagedFile = join(STAGE_DIR, fileName);
+            File stagedFile = join(STAGE_ADD_DIR, fileName);
             File commitFile = join(OBJECT_DIR, sha1Code);
             /** If the file has been committed. */
             if (commitFile.exists()) {
@@ -110,5 +112,74 @@ public class Repository {
         newCommit.updateCommit(commitFile, sha1Code);
         newCommit.updateHEAD(sha1Code);
         newCommit.saveCommit(sha1Code);
+    }
+
+    public static void rm(String fileName) {
+        try {
+            /**
+             * If there is such file in the staged_for_addition area, delete
+             * it in this area.
+             */
+            File stagedFile = join(STAGE_ADD_DIR, fileName);
+            System.out.println(stagedFile.toString());
+            if (stagedFile.exists()) {
+                stagedFile.delete();
+                return;
+            }
+
+            /**
+             * If the file has been tracked in the current commit.
+             */
+            Commit lastCommit = Commit.getLastCommit();
+            Map<String, String> fileMap = new HashMap<>(lastCommit.getFileMap());
+            if (fileMap.containsKey(fileName)) {
+                File file = new File(fileName);
+                file.delete();
+                File stagedForRemovalFile = join(STAGE_RM_DIR, fileName);
+                stagedForRemovalFile.createNewFile();
+                return;
+            }
+
+            /**
+             * The file is neither staged nor tracked by the head commit.
+             */
+            throw new GitletException("No reason to remove the file.");
+        } catch (GitletException e) {
+            System.out.println(e.getMessage());
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    /**
+     * TODO: Not implement the case of two parent
+     */
+    public static void log() {
+        String commitPointer = readContentsAsString(HEAD_FILE);
+        Commit commit = Commit.getCommitFromSha1(commitPointer);
+
+        while (commit.getParent() != null) {
+            System.out.println("===");
+            System.out.println(commit.getContent(commitPointer));
+            System.out.println();
+
+            commitPointer = commit.getParent();
+            commit = Commit.getCommitFromSha1(commitPointer);
+        }
+
+        System.out.println("===");
+        System.out.println(commit.getContent(commitPointer));
+    }
+
+    public static void global_log() {
+        String[] commitObjectSha1CodeList = COMMIT_DIR.list();
+        for (String commitObjectSha1Code: commitObjectSha1CodeList) {
+            File commitFile = join(OBJECT_DIR, commitObjectSha1Code);
+            String commitContent = readContentsAsString(commitFile);
+
+            System.out.println("===");
+            System.out.println(commitContent);
+            System.out.println();
+        }
     }
 }
